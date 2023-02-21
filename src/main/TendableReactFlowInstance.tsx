@@ -10,9 +10,8 @@ import ReactFlow, {
 
 //base types for hierachies
 import type { HierarchyElementStyles, HierarchyElement } from 'src/types/HierarchyElement';
-import type { Hierarchy } from 'src/types/Hierarchy';
-//test sample data
-import { table_data } from "../data/table_data";
+
+
 //available tendable node types 
 //(eg. different nodes available to use on the graph)
 //such as, "organisation", "organisation_element", "hierarchy_element"
@@ -20,9 +19,7 @@ import { TendableNodes } from './TendableNodes'
 
 
 import { convert_table_data_to_nodes_edges } from 'src/funcs/convertTableDataToNodesEdges';
-import { Server } from 'src/server/server';
 import { getNodeDescendants } from 'src/funcs/getNodeDescendants';
-import { setCameraToNodes } from 'src/funcs/setCameraToNodes';
 
 
 
@@ -30,6 +27,10 @@ import { setCameraToNodes } from 'src/funcs/setCameraToNodes';
 //React-Flow basic styles
 import 'reactflow/dist/style.css'
 //import './overview.css'
+
+
+import { onSelectionChange } from './funcs/onSelectionChange';
+import { TableData } from 'src/types/TableData';
 
 
 const minimapStyle = { height: 120 }
@@ -42,114 +43,110 @@ const minimapStyle = { height: 120 }
 
 
 
-export type TableData = { hierarchy_levels: HierarchyElement[], hierarchy: Hierarchy[] }
 
-interface HierarchyProps {
-  orgInfo: OrganisationInformation
+type HierachyElementNoIds = Pick<HierarchyElement, "level_number" | "archived_at" | "name" | "parent_hierarchy_level_id" | "styles">
+type HierachyElementForCreateNewNode = { parent_id: number }
+
+interface TendableReactFlowInstanceProps {
+  tableData: React.RefObject<TableData>
+  createNewNode: (hierarchy_element: HierachyElementForCreateNewNode) => void
 }
-const OverviewFlow = ({ orgInfo }: HierarchyProps) => {
+const TendableReactFlowInstance = ({ tableData, createNewNode }: TendableReactFlowInstanceProps) => {
 
+  //tendable state for hierarchy graph
   const [showHidden, setShowHidden] = useState<boolean>(false)
-  const tableData = useRef<TableData>({ hierarchy_levels: [], hierarchy: [] })
-  const [nodes, setNodes] = useState<Node[]>([]);
-  const [edges, setEdges] = useState<Edge[]>([]);
   const [selectNodesOnDrag, setSelectNodesOnDrag] = useState<boolean>(false)
-  const onConnect = useCallback((params: any) => setEdges((eds) => addEdge(params, eds)), []);
-
-
   const connectingNodeId = useRef<string | null>(null)
-  const { project, getViewport, zoomOut, setViewport, fitView } = useReactFlow();
-  //const { x, y, zoom } = useViewport();
-  const [refresh, setRefresh] = useState<boolean>(false)
   const [init, setInit] = useState<boolean>(false)
 
+
+  //react-flow nodes & edges data structure
+  const [nodes, setNodes] = useState<Node[]>([]);
+  const [edges, setEdges] = useState<Edge[]>([]);
+  //react-flow handles
+  const { project, getViewport, zoomOut, setViewport, fitView } = useReactFlow();
+
+
+
+  //handles
+  const onConnect = useCallback((params: any) => setEdges((eds) => addEdge(params, eds)), []);
 
   const onInit = (reactFlowInstance: any) => {
     setInit(true);
     console.log('flow loaded:', reactFlowInstance);
   }
 
-
-
   useEffect(() => {
     //show deleted nodes
 
-    
+
 
   }, [showHidden])
 
   useEffect(() => {
+    if (tableData.current === null) return
     const descendants = getNodeDescendants(1, tableData.current.hierarchy_levels)
     console.log("descendants", descendants)
     console.log(tableData.current.hierarchy_levels)
-  }, [refresh])
+  }, [])
 
+  //refresh the nodes & edges based on new data
   useEffect(() => {
-    console.log("refreshing")
-
-
-    const styles: HierarchyElementStyles = {
-      type: "organisation",
-      //type: "basicWithGeneric",
-      //type: "basic",
-      position: { x: 200, y: -50 },
-      css: {
-        backgroundColor: "transparent", width: 200, height: 100
-      },
-      data: { name: orgInfo.name, code: orgInfo.code }
-    }
-    const topLevelNode: HierarchyElement = {
-      id: 0,
-      hierarchy_id: 0,
-      level_number: 0,
-      name: "MyHierarchyElement1",
-      parent_hierarchy_level_id: null,
-      styles,
-      archived_at: null,
-    }
-
-    if (typeof tableData.current.hierarchy_levels.find(x => x.id === 0) === "undefined") {
-      tableData.current.hierarchy_levels.push(topLevelNode)
-    }
-
+    if (tableData.current == null) return
     const result = convert_table_data_to_nodes_edges(tableData.current.hierarchy_levels, tableData.current.hierarchy)
-    // //add first level organisation node
-    // const organisationNode: Node<OrganisationInformation> = {
-    //   id: String(0),
-    //   type: "organisation",
-    //   position: { x: 200, y: -50 },
-    //   style: { backgroundColor: "transparent", width: 200, height: 100, },
-    //   data: {
-    //     name: orgInfo.name,
-    //     code: orgInfo.code
-    //   }
-    // }
-    // // result.nodes.splice(0, 0, organisationNode)
-
     setNodes(result.nodes)
     setEdges(result.edges)
 
-
+    //fit view with timeout, as creates visual artifacts otherwise
     setTimeout(() => {
       fitView()
     }, 100)
+  }, [])
 
-  }, [refresh])
 
 
-  // we are using a bit of a shortcut here to adjust the edge type
-  // this could also be done with a custom edge for example
-  const edgesWithUpdatedTypes = edges.map((edge) => {
-    console.log("edges with updated types", edge)
-    if (edge.sourceHandle) {
-      const edgeType = nodes.find((node) => (node.type === 'custom'))
-      if (typeof edgeType === "undefined") return edge;
-      const edgeType2 = edgeType.data.selects[edge.sourceHandle];
-      edge.type = edgeType2;
+  const onConnectStart: OnConnectStart = useCallback((_, { nodeId }) => {
+    connectingNodeId.current = nodeId;
+  }, []);
+
+
+  function isMouseEvent(e: MouseEvent | TouchEvent): e is MouseEvent {
+    return e.type === 'mouseup'
+  }
+
+  const onConnectEnd: OnConnectEnd = (event) => {
+    if (!isMouseEvent(event)) return;
+    if (typeof connectingNodeId.current !== "string") return;
+
+    const targetIsPane = (event.target !== null) && (event.target instanceof Element) && (event.target.classList.contains("react-flow__pane"))
+
+
+
+
+    const new_element: HierachyElementForCreateNewNode = {
+      parent_id: Number(connectingNodeId.current)
     }
+    createNewNode(new_element)
 
-    return edge;
-  });
+
+  }
+
+
+
+
+  // // we are using a bit of a shortcut here to adjust the edge type
+  // // this could also be done with a custom edge for example
+  // const edgesWithUpdatedTypes = edges.map((edge) => {
+  //   console.log("edges with updated types", edge)
+  //   if (edge.sourceHandle) {
+  //     const edgeType = nodes.find((node) => (node.type === 'custom'))
+  //     if (typeof edgeType === "undefined") return edge;
+  //     const edgeType2 = edgeType.data.selects[edge.sourceHandle];
+  //     edge.type = edgeType2;
+  //   }
+
+  //   return edge;
+  // });
 
   const onNodesChange = (nodeChanges: NodeChange[]) => {
     console.log("nodeChanges", nodeChanges)
@@ -181,20 +178,11 @@ const OverviewFlow = ({ orgInfo }: HierarchyProps) => {
 
 
 
-  function callback(hls: HierarchyElement[], hs: Hierarchy[]) {
-    tableData.current = { hierarchy_levels: hls, hierarchy: hs }
-    setRefresh(!refresh)
-  }
 
 
   console.log("render")
   return (
     <>
-      <div>
-        <button onClick={() => { setRefresh(!refresh) }}>Refresh</button>
-        <button onClick={() => { console.log("viewport:", getViewport()) }}>Viewport</button>
-        <Server callback={callback} data={tableData} />
-      </div>
       <div style={{ padding: "200px", paddingTop: "20px" }}>
         <div style={{ height: "30px" }}>
           <button onClick={() => { fitView() }}>Fit view</button>
@@ -207,7 +195,7 @@ const OverviewFlow = ({ orgInfo }: HierarchyProps) => {
         <div style={{ border: "1px solid #d7dce1", height: "100%" }}>
           <ReactFlow
             nodes={nodes}
-            edges={edgesWithUpdatedTypes}
+            edges={edges}
             {...{ onNodesChange, onEdgesChange }}
             onConnect={onConnect}
             onInit={onInit}
@@ -238,30 +226,4 @@ const OverviewFlow = ({ orgInfo }: HierarchyProps) => {
     </>
   );
 };
-
-
-
-
-
-interface OrganisationInformation {
-  name: string
-  code: string
-}
-
-interface MainProps { }
-const Main = (props: MainProps) => {
-
-
-  const [orgInfo, setOrgInfo] = useState<OrganisationInformation>({
-    name: "Nuffield Health", code: "NUF123456UK"
-  })
-
-  return (
-    <div className="main">
-      <ReactFlowProvider>
-        <OverviewFlow orgInfo={orgInfo} />
-      </ReactFlowProvider>
-    </div>
-  )
-}
-export { Main }
+export { TendableReactFlowInstance }

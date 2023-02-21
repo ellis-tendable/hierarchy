@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
-import { TableData } from "src/main/main"
 import type { Hierarchy } from "src/types/Hierarchy"
 import type { HierarchyElement } from "src/types/HierarchyElement"
+import { TableData } from "src/types/TableData"
 
 import "./server.css"
 
