@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import ReactFlow, { addEdge, MiniMap, Controls, Background,
-  useNodesState, useEdgesState, Node, Edge, EdgeChange, NodeChange, 
+import ReactFlow, {
+  addEdge, MiniMap, Controls, Background,
+  useNodesState, useEdgesState, Node, Edge, EdgeChange, NodeChange,
   NodeTypes, NodeProps,
   OnSelectionChangeFunc, OnConnectEnd, OnConnectStart,
   useReactFlow, useViewport,
@@ -70,14 +71,11 @@ const OverviewFlow = ({ orgInfo }: HierarchyProps) => {
 
 
 
-  // useEffect(() => {
-  //   console.log(x, y, zoom)
-  // }, [x, y, zoom])
-
-
   useEffect(() => {
     //show deleted nodes
+
     
+
   }, [showHidden])
 
   useEffect(() => {
@@ -106,7 +104,8 @@ const OverviewFlow = ({ orgInfo }: HierarchyProps) => {
       level_number: 0,
       name: "MyHierarchyElement1",
       parent_hierarchy_level_id: null,
-      styles
+      styles,
+      archived_at: null,
     }
 
     if (typeof tableData.current.hierarchy_levels.find(x => x.id === 0) === "undefined") {
@@ -180,93 +179,7 @@ const OverviewFlow = ({ orgInfo }: HierarchyProps) => {
     console.log("selection end", arguments)
   }
 
-  const onSelectionChange: OnSelectionChangeFunc = (params) => {
-    // console.log("selection change", params)
-    // const selectedNodes = params.nodes.filter(x => x.selected)
-    // if (selectedNodes.length <= 0) return;
 
-    // const groupNode: Node<GroupNodeProps> = {
-    //   id: "group-1",
-    //   type: "group",
-    //   position: { x: 0, y: 0 },
-    //   style: { backgroundColor: "rgba(255,0,0,0.2)", width: 200, height: 200 },
-    //   data: {
-    //     name: "Group 1"
-    //   },
-    //   zIndex: -1,
-    // }
-    // const oldNodes = structuredClone(nodes)
-    // oldNodes.push(groupNode)
-    // // setNodes(oldNodes)
-    // return;
-  }
-
-
-  function isMouseEvent(e: MouseEvent | TouchEvent): e is MouseEvent {
-    return e.type === 'mouseup'
-  }
-
-
-  const onConnectStart: OnConnectStart = useCallback((_, { nodeId }) => {
-    connectingNodeId.current = nodeId;
-  }, []);
-  const onConnectEnd: OnConnectEnd = (event) => {
-
-    if (!isMouseEvent(event)) return;
-
-    if (typeof connectingNodeId.current !== "string") return;
-
-
-    const targetIsPane = (event.target !== null) && (event.target instanceof Element) && (event.target.classList.contains("react-flow__pane"))
-
-
-    console.log("event", event)
-
-    const parent_node: HierarchyElement =
-      //(typeof connectingNodeId.current != null) ?
-      tableData.current.hierarchy_levels.filter(x => x.id == Number(connectingNodeId.current))[0]
-
-
-
-    var max_id = Math.max(...tableData.current.hierarchy_levels.map(x => x.id))
-    max_id += 1
-    const new_hierarchy_element: HierarchyElement = {
-      id: max_id,
-      hierarchy_id: 0,
-      level_number: parent_node.level_number + 1,
-      parent_hierarchy_level_id: parent_node.id,
-      name: "HierarchyElement-" + max_id
-    }
-    tableData.current.hierarchy_levels.push(new_hierarchy_element)
-    const result = convert_table_data_to_nodes_edges(tableData.current.hierarchy_levels, tableData.current.hierarchy)
-    setNodes(result.nodes)
-    setEdges(result.edges)
-
-    // if (targetIsPane) {
-    //   // we need to remove the wrapper bounds, in order to get the correct position
-    //   //const { top, left } = reactFlowWrapper.current.getBoundingClientRect();
-    //   const top = 0;
-    //   const left = 0;
-    //   //const id = getId();
-    //   const id = String(new Date().getTime())
-    //   const newNode = {
-    //     id,
-    //     // we are removing the half of the node width (75) to center the new node
-    //     position: project({ x: event.clientX - left - 75, y: event.clientY - top }),
-    //     data: { label: `Node ${id}` },
-    //   };
-
-    //   const oldNodes: Node[] = structuredClone(nodes)
-    //   oldNodes.push(newNode)
-    //   setNodes(oldNodes)
-    //   //setNodes((nds) => nds.concat(newNode));
-    //   const oldEdges: Edge[] = structuredClone(edges)
-    //   oldEdges.push({ id, source: connectingNodeId.current, target: id })
-    //   setEdges(oldEdges)
-    //   //setEdges((eds) => eds.concat({ id, source: connectingNodeId.current, target: id }));
-
-    // }
-  }
 
   function callback(hls: HierarchyElement[], hs: Hierarchy[]) {
     tableData.current = { hierarchy_levels: hls, hierarchy: hs }
@@ -289,7 +202,7 @@ const OverviewFlow = ({ orgInfo }: HierarchyProps) => {
           <button
             onClick={() => { setShowHidden(!showHidden) }}
             style={{ backgroundColor: showHidden ? "green" : "initial" }}
-          >{ (showHidden ? "Hide" : "Show") + " archived"}</button>
+          >{(showHidden ? "Hide" : "Show") + " archived"}</button>
         </div>
         <div style={{ border: "1px solid #d7dce1", height: "100%" }}>
           <ReactFlow

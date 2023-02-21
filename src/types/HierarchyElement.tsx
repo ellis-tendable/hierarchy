@@ -12,6 +12,7 @@ interface HierarchyElement {
     level_number: number
     name: string
     parent_hierarchy_level_id: number | null
+    archived_at: null | Date
     styles?: HierarchyElementStyles
 }
 export type { HierarchyElementStyles, HierarchyElement }
