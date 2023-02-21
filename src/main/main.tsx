@@ -1,57 +1,37 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import ReactFlow, {
-  addEdge,
-  MiniMap,
-  Controls,
-  Background,
-  useNodesState,
-  useEdgesState,
-  Node,
-  Edge,
-  EdgeChange,
-  NodeChange,
-  OnSelectionChangeFunc,
-  NodeTypes,
-  NodeProps,
-  OnConnectEnd,
-  useReactFlow,
-  OnConnectStart,
+import ReactFlow, { addEdge, MiniMap, Controls, Background,
+  useNodesState, useEdgesState, Node, Edge, EdgeChange, NodeChange, 
+  NodeTypes, NodeProps,
+  OnSelectionChangeFunc, OnConnectEnd, OnConnectStart,
+  useReactFlow, useViewport,
   ReactFlowProvider,
-  useViewport,
 } from 'reactflow';
 
-
-import { Hierarchy, HierarchyElement, table_data } from "../data/table_data";
-
-//custom nodes
-import type { GroupNodeProps } from 'src/components/group_node';
-import GroupNode from 'src/components/group_node';
-
-import type { OrganisationNodeProps } from 'src/components/organisation_node';
-import OrganisationNode from 'src/components/organisation_node';
-
-
+//base types for hierachies
+import type { HierarchyElementStyles, HierarchyElement } from 'src/types/HierarchyElement';
+import type { Hierarchy } from 'src/types/Hierarchy';
+//test sample data
+import { table_data } from "../data/table_data";
+//available tendable node types 
+//(eg. different nodes available to use on the graph)
+//such as, "organisation", "organisation_element", "hierarchy_element"
+import { TendableNodes } from './TendableNodes'
 
 
-import CustomNode from '../components/custon_node';
-
-
-import 'reactflow/dist/style.css';
 import { convert_table_data_to_nodes_edges } from 'src/funcs/convertTableDataToNodesEdges';
 import { Server } from 'src/server/server';
 import { getNodeDescendants } from 'src/funcs/getNodeDescendants';
-import { HierarchyElementStyles } from 'src/types/HierarchyElement';
-//import './overview.css';
+import { setCameraToNodes } from 'src/funcs/setCameraToNodes';
 
-const nodeTypes: NodeTypes = {
-  custom: CustomNode,
-  group: GroupNode,
-  organisation: OrganisationNode,
-};
 
-const minimapStyle = {
-  height: 120,
-};
+
+//styles
+//React-Flow basic styles
+import 'reactflow/dist/style.css'
+//import './overview.css'
+
+
+const minimapStyle = { height: 120 }
 
 
 
@@ -68,6 +48,7 @@ interface HierarchyProps {
 }
 const OverviewFlow = ({ orgInfo }: HierarchyProps) => {
 
+  const [showHidden, setShowHidden] = useState<boolean>(false)
   const tableData = useRef<TableData>({ hierarchy_levels: [], hierarchy: [] })
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -75,9 +56,9 @@ const OverviewFlow = ({ orgInfo }: HierarchyProps) => {
   const onConnect = useCallback((params: any) => setEdges((eds) => addEdge(params, eds)), []);
 
 
-  const connectingNodeId = useRef<string|null>(null)
-  const { project, getViewport, zoomOut, setViewport } = useReactFlow();
-  const { x, y, zoom } = useViewport();
+  const connectingNodeId = useRef<string | null>(null)
+  const { project, getViewport, zoomOut, setViewport, fitView } = useReactFlow();
+  //const { x, y, zoom } = useViewport();
   const [refresh, setRefresh] = useState<boolean>(false)
   const [init, setInit] = useState<boolean>(false)
 
@@ -88,11 +69,17 @@ const OverviewFlow = ({ orgInfo }: HierarchyProps) => {
   }
 
 
+
+  // useEffect(() => {
+  //   console.log(x, y, zoom)
+  // }, [x, y, zoom])
+
+
   useEffect(() => {
-    console.log(x, y, zoom)
-  }, [x, y, zoom])
-  
-  
+    //show deleted nodes
+    
+  }, [showHidden])
+
   useEffect(() => {
     const descendants = getNodeDescendants(1, tableData.current.hierarchy_levels)
     console.log("descendants", descendants)
@@ -100,14 +87,16 @@ const OverviewFlow = ({ orgInfo }: HierarchyProps) => {
   }, [refresh])
 
   useEffect(() => {
-
+    console.log("refreshing")
 
 
     const styles: HierarchyElementStyles = {
       type: "organisation",
+      //type: "basicWithGeneric",
+      //type: "basic",
       position: { x: 200, y: -50 },
       css: {
-        backgroundColor: "transparent", width: 200, height: 100 
+        backgroundColor: "transparent", width: 200, height: 100
       },
       data: { name: orgInfo.name, code: orgInfo.code }
     }
@@ -125,7 +114,6 @@ const OverviewFlow = ({ orgInfo }: HierarchyProps) => {
     }
 
     const result = convert_table_data_to_nodes_edges(tableData.current.hierarchy_levels, tableData.current.hierarchy)
-
     // //add first level organisation node
     // const organisationNode: Node<OrganisationInformation> = {
     //   id: String(0),
@@ -141,18 +129,19 @@ const OverviewFlow = ({ orgInfo }: HierarchyProps) => {
 
     setNodes(result.nodes)
     setEdges(result.edges)
+
+
+    setTimeout(() => {
+      fitView()
+    }, 100)
+
   }, [refresh])
 
-  const doDefaultZoom = () => {
-    setViewport({x: 736.2629128014834, y: 110.63749007216776, zoom: 1.1953903743485663})
-  }
-  useEffect(() => {
-    doDefaultZoom()
-  }, [init])
 
   // we are using a bit of a shortcut here to adjust the edge type
   // this could also be done with a custom edge for example
   const edgesWithUpdatedTypes = edges.map((edge) => {
+    console.log("edges with updated types", edge)
     if (edge.sourceHandle) {
       const edgeType = nodes.find((node) => (node.type === 'custom'))
       if (typeof edgeType === "undefined") return edge;
@@ -184,7 +173,7 @@ const OverviewFlow = ({ orgInfo }: HierarchyProps) => {
     })
   }
   const onEdgesChange = (edgeChanges: EdgeChange[]) => {
-
+    console.log("onEdgesChange")
   }
 
   function onSelectionEnd() {
@@ -192,24 +181,24 @@ const OverviewFlow = ({ orgInfo }: HierarchyProps) => {
   }
 
   const onSelectionChange: OnSelectionChangeFunc = (params) => {
-    console.log("selection change", params)
-    const selectedNodes = params.nodes.filter(x => x.selected)
-    if (selectedNodes.length <= 0) return;
+    // console.log("selection change", params)
+    // const selectedNodes = params.nodes.filter(x => x.selected)
+    // if (selectedNodes.length <= 0) return;
 
-    const groupNode: Node<GroupNodeProps> = {
-      id: "group-1",
-      type: "group",
-      position: { x: 0, y: 0 },
-      style: { backgroundColor: "rgba(255,0,0,0.2)", width: 200, height: 200 },
-      data: {
-        name: "Group 1"
-      },
-      zIndex: -1,
-    }
-    const oldNodes = structuredClone(nodes)
-    oldNodes.push(groupNode)
-    // setNodes(oldNodes)
-    return;
+    // const groupNode: Node<GroupNodeProps> = {
+    //   id: "group-1",
+    //   type: "group",
+    //   position: { x: 0, y: 0 },
+    //   style: { backgroundColor: "rgba(255,0,0,0.2)", width: 200, height: 200 },
+    //   data: {
+    //     name: "Group 1"
+    //   },
+    //   zIndex: -1,
+    // }
+    // const oldNodes = structuredClone(nodes)
+    // oldNodes.push(groupNode)
+    // // setNodes(oldNodes)
+    // return;
   }
 
 
@@ -233,10 +222,10 @@ const OverviewFlow = ({ orgInfo }: HierarchyProps) => {
 
     console.log("event", event)
 
-    const parent_node: HierarchyElement = 
+    const parent_node: HierarchyElement =
       //(typeof connectingNodeId.current != null) ?
       tableData.current.hierarchy_levels.filter(x => x.id == Number(connectingNodeId.current))[0]
-    
+
 
 
     var max_id = Math.max(...tableData.current.hierarchy_levels.map(x => x.id))
@@ -281,48 +270,57 @@ const OverviewFlow = ({ orgInfo }: HierarchyProps) => {
 
   function callback(hls: HierarchyElement[], hs: Hierarchy[]) {
     tableData.current = { hierarchy_levels: hls, hierarchy: hs }
-    setRefresh(!refresh) 
+    setRefresh(!refresh)
   }
+
+
+  console.log("render")
   return (
     <>
-    <div>
-      <button onClick={() => { setRefresh(!refresh) }}>Refresh</button>
-      <button onClick={() => { console.log("viewport:", getViewport()) }}>Viewport</button>
-      <Server callback={callback} data={tableData}/>
-    </div>
-      <div style={{ padding: "200px" }}>
-      <div style={{ border: "1px solid #d7dce1", height: "100%" }}>
-      <ReactFlow
-        nodes={nodes}
-        edges={edgesWithUpdatedTypes}
-        {...{ onNodesChange, onEdgesChange }}
-        onConnect={onConnect}
-        onInit={onInit}
-        fitView
-        attributionPosition="top-right"
-
-
-        nodeTypes={nodeTypes}
-
-        panOnDrag={true}
-        selectionOnDrag={true}
-        selectNodesOnDrag={true}
-        selectionKeyCode={"Control"}
-
-        onKeyDown={(event) => { if (event.ctrlKey) setSelectNodesOnDrag(true) }} 
-        onKeyUp={(event) => { if (event.ctrlKey) setSelectNodesOnDrag(false) }}
-
-        onSelectionEnd={onSelectionEnd}
-        onSelectionChange={onSelectionChange}
-
-        onConnectStart={onConnectStart}
-        onConnectEnd={onConnectEnd}
-      >
-        <MiniMap style={minimapStyle} zoomable pannable />
-        <Controls />
-        <Background color="#aaa" gap={16} />
-      </ReactFlow>
+      <div>
+        <button onClick={() => { setRefresh(!refresh) }}>Refresh</button>
+        <button onClick={() => { console.log("viewport:", getViewport()) }}>Viewport</button>
+        <Server callback={callback} data={tableData} />
       </div>
+      <div style={{ padding: "200px", paddingTop: "20px" }}>
+        <div style={{ height: "30px" }}>
+          <button onClick={() => { fitView() }}>Fit view</button>
+          <button>Attempt to retain user spacing</button>
+          <button
+            onClick={() => { setShowHidden(!showHidden) }}
+            style={{ backgroundColor: showHidden ? "green" : "initial" }}
+          >{ (showHidden ? "Hide" : "Show") + " archived"}</button>
+        </div>
+        <div style={{ border: "1px solid #d7dce1", height: "100%" }}>
+          <ReactFlow
+            nodes={nodes}
+            edges={edgesWithUpdatedTypes}
+            {...{ onNodesChange, onEdgesChange }}
+            onConnect={onConnect}
+            onInit={onInit}
+            attributionPosition="top-right"
+
+
+            nodeTypes={TendableNodes}
+            panOnDrag={true}
+            selectionOnDrag={true}
+            selectNodesOnDrag={true}
+            selectionKeyCode={"Control"}
+
+            onKeyDown={(event) => { if (event.ctrlKey) setSelectNodesOnDrag(true) }}
+            onKeyUp={(event) => { if (event.ctrlKey) setSelectNodesOnDrag(false) }}
+
+            onSelectionEnd={onSelectionEnd}
+            onSelectionChange={onSelectionChange}
+
+            onConnectStart={onConnectStart}
+            onConnectEnd={onConnectEnd}
+          >
+            <MiniMap style={minimapStyle} zoomable pannable />
+            <Controls />
+            <Background color="#aaa" gap={16} />
+          </ReactFlow>
+        </div>
       </div>
     </>
   );

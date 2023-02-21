@@ -28,5 +28,5 @@
   },
   "include": [
     "src"
-  ]
+, "_old/nodes/BasicNode.tsx", "_old/components/old", "_old/components/HierarchyElementNode.tsx"  ]
 }

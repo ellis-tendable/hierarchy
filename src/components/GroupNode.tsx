@@ -1,7 +1,6 @@
 import React, { memo } from "react"
 import Handle, { Node, NodeProps } from "reactflow"
-
-
+import "./styles/GroupNode.css"
 interface GroupNodeProps {
     name: string
 }

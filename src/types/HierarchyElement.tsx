@@ -1,7 +1,7 @@
 import { CSSProperties } from "react"
 
 interface HierarchyElementStyles {
-    type?: "organisation" | "other"
+    type?: "organisation" | "other" | "basicWithGeneric" | "basic"
     position?: { x: number, y: number }
     css?: CSSProperties
     data?: { name: string, code: string }

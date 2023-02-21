@@ -43,4 +43,3 @@ const hierarchy: Hierarchy[] = [
 const table_data = { hierarchy_levels, hierarchy }
 
 export { table_data }
-export type { Hierarchy, HierarchyElement }
